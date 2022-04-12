@@ -98,6 +98,7 @@ function clientFirstConnect(ws: WS) {
       return;
     }
     const clientSid = sid++;
+    clients.set(clientSid, ws);
     sendPayload(ws, 'IDENTIFIED', {
       sid: clientSid.toString(),
       name: payload.d.name
