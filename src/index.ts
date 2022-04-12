@@ -21,14 +21,14 @@ app.all('/', (req, res) => {
   res.json({ hello: 'world', version: packageJSON.version });
 });
 
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   if (req.path === '/client') {
     next();
     return;
   }
   if (!req.headers.authorization) return res.status(401).send('Unauthorized');
   const auth = new BasicAuth(req.headers.authorization);
-  if (!auth.hasPermissions()) return res.status(403).send('Forbidden');
+  if (!(await auth.hasPermissions())) return res.status(403).send('Forbidden');
   next();
 });
 
