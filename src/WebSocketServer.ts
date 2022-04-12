@@ -1,10 +1,12 @@
 import WS from 'ws';
 import BasicAuth from './BasicAuth';
 
-const clients: WS[] = [],
+const clients: Map<number, WS> = new Map(),
   clientHeartbeatTimeout: NodeJS.Timeout[] = [],
   server = new WS.Server({ noServer: true }),
   heartbeatInterval = 10000;
+
+let sid = 0;
 
 interface ServerPayloads {
   IDENTIFY: {
@@ -71,7 +73,7 @@ function sendPayloadToAll<T extends keyof ServerPayloads>(
 }
 
 function sendPrompt(message: string) {
-  if (clients.length === 0) throw new Error('No clients connected');
+  if (clients.size === 0) throw new Error('No clients connected');
   sendPayloadToAll('MESSAGE', message);
 }
 
@@ -95,32 +97,34 @@ function clientFirstConnect(ws: WS) {
       ws.close(ServerCloseCodes.InvalidToken);
       return;
     }
-    const sid = clients.push(ws) - 1;
+    const clientSid = sid++;
     sendPayload(ws, 'IDENTIFIED', {
-      sid: sid.toString(),
+      sid: clientSid.toString(),
       name: payload.d.name
     });
-    console.log(`Client ${payload.d.name} (${sid}) connected`);
+    console.log(`Client ${payload.d.name} (${clientSid}) connected`);
     ws.on('close', () => {
-      console.log(`Client ${payload.d.name} (${sid}) disconnected`);
-      clearTimeout(clientHeartbeatTimeout[sid]);
-      clients.splice(sid, 1);
+      console.log(`Client ${payload.d.name} (${clientSid}) disconnected`);
+      clearTimeout(clientHeartbeatTimeout[clientSid]);
+      clients.delete(clientSid);
+      if (clients.size === 0) sid = 0;
     });
     ws.on('error', () => {
-      console.log(`Client ${payload.d.name} (${sid}) disconnected`);
-      clearTimeout(clientHeartbeatTimeout[sid]);
-      clients.splice(sid, 1);
+      console.log(`Client ${payload.d.name} (${clientSid}) disconnected`);
+      clearTimeout(clientHeartbeatTimeout[clientSid]);
+      clients.delete(clientSid);
+      if (clients.size === 0) sid = 0;
       ws.close(ServerCloseCodes.ServerError);
     });
     ws.on('message', (data: string) => {
       const payload: GenericPayload = JSON.parse(data);
-      handleClientPayload(sid, payload);
+      handleClientPayload(clientSid, payload);
     });
   });
 }
 
 async function handleClientPayload(wsID: number, data: GenericPayload) {
-  const ws = clients[wsID];
+  const ws = clients.get(wsID);
   if (!ws) return;
   switch (data.op) {
     case 'IDENTIFY':
