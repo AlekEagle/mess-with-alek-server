@@ -106,12 +106,14 @@ function clientFirstConnect(ws: WS) {
     ws.on('close', () => {
       console.log(`Client ${payload.d.name} (${clientSid}) disconnected`);
       clearTimeout(clientHeartbeatTimeout[clientSid]);
+      delete clientHeartbeatTimeout[clientSid];
       clients.delete(clientSid);
       if (clients.size === 0) sid = 0;
     });
     ws.on('error', () => {
       console.log(`Client ${payload.d.name} (${clientSid}) disconnected`);
       clearTimeout(clientHeartbeatTimeout[clientSid]);
+      delete clientHeartbeatTimeout[clientSid];
       clients.delete(clientSid);
       if (clients.size === 0) sid = 0;
       ws.close(ServerCloseCodes.ServerError);
