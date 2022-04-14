@@ -28,11 +28,13 @@ app.use(async (req, res, next) => {
   }
   if (!req.headers.authorization) {
     res.status(401).send("Unauthorized");
+    console.log("Blocked request without authorization header");
     return;
   }
   const auth = new BasicAuth(req.headers.authorization);
   if (!(await auth.hasPermissions())) {
     res.status(403).send("Forbidden");
+    console.log(`Blocked request from ${auth.username}`);
     return;
   }
   next();
