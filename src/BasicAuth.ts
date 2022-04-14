@@ -23,7 +23,7 @@ export default class BasicAuth {
       throw new Error("Username must be at most 255 characters long");
     if (!/^[a-zA-Z0-9_\-]+$/.test(username))
       throw new Error(
-        `Username must only contain alphanumeric characters, underscores and dashes, ${username}`
+        `Username must only contain alphanumeric characters, underscores and dashes`
       );
     this.__username = username;
   }

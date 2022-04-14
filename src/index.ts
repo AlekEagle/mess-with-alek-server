@@ -1,13 +1,13 @@
-import Express from 'express';
-import BasicAuth, { returnAllUserTokens } from './BasicAuth';
-import { readFile } from 'fs/promises';
+import Express from "express";
+import BasicAuth, { returnAllUserTokens } from "./BasicAuth";
+import { readFile } from "fs/promises";
 let packageJSON: any;
-import { sendPrompt, server as WSServer } from './WebSocketServer';
+import { sendPrompt, server as WSServer } from "./WebSocketServer";
 
 (async function () {
-  packageJSON = JSON.parse(await readFile('./package.json', 'utf8'));
-  if (process.env.PRINT_TOKENS === 'true') {
-    console.log((await returnAllUserTokens()).join('\n'));
+  packageJSON = JSON.parse(await readFile("./package.json", "utf8"));
+  if (process.env.PRINT_TOKENS === "true") {
+    console.log((await returnAllUserTokens()).join("\n"));
   }
 })();
 
@@ -17,24 +17,30 @@ app.use(Express.json());
 app.use(Express.urlencoded({ extended: true }));
 app.use(Express.text());
 
-app.all('/', (req, res) => {
-  res.json({ hello: 'world', version: packageJSON.version });
+app.all("/", (req, res) => {
+  res.json({ hello: "world", version: packageJSON.version });
 });
 
 app.use(async (req, res, next) => {
-  if (req.path === '/client') {
+  if (req.path === "/client") {
     next();
     return;
   }
-  if (!req.headers.authorization) return res.status(401).send('Unauthorized');
+  if (!req.headers.authorization) {
+    res.status(401).send("Unauthorized");
+    return;
+  }
   const auth = new BasicAuth(req.headers.authorization);
-  if (!(await auth.hasPermissions())) return res.status(403).send('Forbidden');
+  if (!(await auth.hasPermissions())) {
+    res.status(403).send("Forbidden");
+    return;
+  }
   next();
 });
 
-app.post('/prompt', (req, res) => {
-  if (req.headers['content-type'] !== 'text/plain')
-    return res.status(415).send('Unsupported Media Type');
+app.post("/prompt", (req, res) => {
+  if (req.headers["content-type"] !== "text/plain")
+    return res.status(415).send("Unsupported Media Type");
 
   try {
     sendPrompt(req.body);
@@ -45,14 +51,14 @@ app.post('/prompt', (req, res) => {
 });
 
 const server = app.listen(3000, () => {
-  console.log('Listening on port 3000');
+  console.log("Listening on port 3000");
 });
 
 // Handle websocket connections from clients via express (app) and pass them to WSServer
-server.on('upgrade', (req, socket, head) => {
-  if (req.headers.upgrade !== 'websocket') return socket.destroy();
-  if (req.url !== '/client') return socket.destroy();
-  WSServer.handleUpgrade(req, socket, head, ws => {
-    WSServer.emit('connection', ws, req);
+server.on("upgrade", (req, socket, head) => {
+  if (req.headers.upgrade !== "websocket") return socket.destroy();
+  if (req.url !== "/client") return socket.destroy();
+  WSServer.handleUpgrade(req, socket, head, (ws) => {
+    WSServer.emit("connection", ws, req);
   });
 });
