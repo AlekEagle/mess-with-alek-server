@@ -62,12 +62,12 @@ function createClientWS(
   ws: WS,
   name: string,
   id: number,
-  req: ServerRequest
+  user: BasicAuth
 ): ClientWS {
   (ws as ClientWS).clientName = name;
   (ws as ClientWS).clientId = id;
-  (ws as ClientWS).username = req.user.username;
-  (ws as ClientWS).password = req.user.password;
+  (ws as ClientWS).username = user.username;
+  (ws as ClientWS).password = user.password;
   return ws as ClientWS;
 }
 
@@ -112,7 +112,7 @@ function clientFirstConnect(ws: WS, req: ServerRequest) {
       return;
     }
     const clientSid = sid++;
-    clients.set(clientSid, createClientWS(ws, payload.d.name, clientSid, req));
+    clients.set(clientSid, createClientWS(ws, payload.d.name, clientSid, auth));
     sendPayload(ws, "IDENTIFIED", {
       sid: clientSid.toString(),
       name: payload.d.name,
