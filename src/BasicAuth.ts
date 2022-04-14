@@ -3,6 +3,7 @@ import { readFile, writeFile } from "fs/promises";
 export default class BasicAuth {
   private __username: string;
   private __password: string;
+  private __admin: boolean;
 
   public get username(): string {
     return this.__username;
@@ -10,6 +11,10 @@ export default class BasicAuth {
 
   public get password(): string {
     return this.__password;
+  }
+
+  public get admin(): boolean {
+    return this.__admin;
   }
 
   public get token(): string {
@@ -36,6 +41,10 @@ export default class BasicAuth {
     this.__password = password;
   }
 
+  public set admin(admin: boolean) {
+    this.__admin = admin;
+  }
+
   public static FromUserPass(username: string, password: string): BasicAuth {
     return new BasicAuth(
       Buffer.from(`${username}:${password}`).toString("base64")
@@ -49,17 +58,19 @@ export default class BasicAuth {
       .split(":", 2);
     this.username = username;
     this.password = password;
+    this.hasPermissions();
   }
 
   public async hasPermissions(): Promise<boolean> {
     const file = JSON.parse(await readFile("./config/users.json", "utf8"));
     if (!file[this.username]) return false;
-    return file[this.username] === this.password;
+    this.__admin = file[this.username].admin;
+    return file[this.username].password === this.password;
   }
 
   public async givePermissions(): Promise<void> {
     const file = JSON.parse(await readFile("./config/users.json", "utf8"));
-    file[this.username] = this.password;
+    file[this.username] = { password: this.password, admin: this.admin };
     await writeFile("./config/users.json", JSON.stringify(file));
   }
 
@@ -68,6 +79,12 @@ export default class BasicAuth {
     delete file[this.username];
     await writeFile("./config/users.json", JSON.stringify(file));
   }
+}
+
+export async function fromUsername(username: string): Promise<BasicAuth> {
+  const file = JSON.parse(await readFile("./config/users.json", "utf8"));
+  if (!file[username]) throw new Error("User does not exist");
+  return BasicAuth.FromUserPass(username, file[username].password);
 }
 
 export async function returnAllUserTokens(): Promise<string[]> {
