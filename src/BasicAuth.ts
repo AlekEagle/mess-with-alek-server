@@ -90,8 +90,11 @@ export async function fromUsername(username: string): Promise<BasicAuth> {
 export async function returnAllUserTokens(): Promise<string[]> {
   const file = JSON.parse(await readFile("./config/users.json", "utf8"));
   return Object.entries(file).map(
-    ([username, password]) =>
-      `${username}: ${Buffer.from(`${username}:${password}`).toString(
+    ([username, data]: [
+      username: string,
+      data: { password: string; admin: boolean }
+    ]) =>
+      `${username}: ${Buffer.from(`${username}:${data.password}`).toString(
         "base64"
       )}`
   );
