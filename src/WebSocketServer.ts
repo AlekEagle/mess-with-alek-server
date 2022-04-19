@@ -1,7 +1,8 @@
-import WS from 'ws';
-import BasicAuth from './BasicAuth';
+import WS from "ws";
+import BasicAuth from "./BasicAuth";
+import { ClientWS, ServerRequest } from "./data-shim";
 
-const clients: Map<number, WS> = new Map(),
+const clients: Map<number, ClientWS> = new Map(),
   clientHeartbeatTimeout: NodeJS.Timeout[] = [],
   server = new WS.Server({ noServer: true }),
   heartbeatInterval = 10000;
@@ -31,14 +32,14 @@ enum ServerCloseCodes {
   InvalidToken = 4001,
   InvalidPayload = 4002,
   MissedHeartbeat = 4003,
-  AlreadyIdentified = 4004
+  AlreadyIdentified = 4004,
 }
 
 enum ClientCloseCodes {
   OK = 1000,
   ClientError = 4000,
   InvalidPayload = 4001,
-  MissedHeartbeat = 4002
+  MissedHeartbeat = 4002,
 }
 
 interface ClientPayloads {
@@ -57,6 +58,19 @@ interface GenericPayload {
   d: any;
 }
 
+function createClientWS(
+  ws: WS,
+  name: string,
+  id: number,
+  user: BasicAuth
+): ClientWS {
+  (ws as ClientWS).clientName = name;
+  (ws as ClientWS).clientId = id;
+  (ws as ClientWS).username = user.username;
+  (ws as ClientWS).password = user.password;
+  return ws as ClientWS;
+}
+
 function sendPayload<T extends keyof ServerPayloads>(
   ws: WS,
   op: T,
@@ -69,21 +83,21 @@ function sendPayloadToAll<T extends keyof ServerPayloads>(
   op: T,
   d: ServerPayloads[T]
 ) {
-  clients.forEach(ws => sendPayload(ws, op, d));
+  clients.forEach((ws) => sendPayload(ws, op, d));
 }
 
 function sendPrompt(message: string) {
-  if (clients.size === 0) throw new Error('No clients connected');
-  sendPayloadToAll('MESSAGE', message);
+  if (clients.size === 0) throw new Error("No clients connected");
+  sendPayloadToAll("MESSAGE", message);
 }
 
-function clientFirstConnect(ws: WS) {
-  sendPayload(ws, 'IDENTIFY', {
-    heartbeatInterval
+function clientFirstConnect(ws: WS, req: ServerRequest) {
+  sendPayload(ws, "IDENTIFY", {
+    heartbeatInterval,
   });
-  ws.once('message', async (data: string) => {
+  ws.once("message", async (data: string) => {
     const payload: GenericPayload = JSON.parse(data);
-    if (payload.op !== 'IDENTITY') {
+    if (payload.op !== "IDENTITY") {
       ws.close(ServerCloseCodes.InvalidPayload);
       return;
     }
@@ -98,20 +112,20 @@ function clientFirstConnect(ws: WS) {
       return;
     }
     const clientSid = sid++;
-    clients.set(clientSid, ws);
-    sendPayload(ws, 'IDENTIFIED', {
+    clients.set(clientSid, createClientWS(ws, payload.d.name, clientSid, auth));
+    sendPayload(ws, "IDENTIFIED", {
       sid: clientSid.toString(),
-      name: payload.d.name
+      name: payload.d.name,
     });
     console.log(`Client ${payload.d.name} (${clientSid}) connected`);
-    ws.on('close', () => {
+    ws.on("close", () => {
       console.log(`Client ${payload.d.name} (${clientSid}) disconnected`);
       clearTimeout(clientHeartbeatTimeout[clientSid]);
       delete clientHeartbeatTimeout[clientSid];
       clients.delete(clientSid);
       if (clients.size === 0) sid = 0;
     });
-    ws.on('error', () => {
+    ws.on("error", () => {
       console.log(`Client ${payload.d.name} (${clientSid}) disconnected`);
       clearTimeout(clientHeartbeatTimeout[clientSid]);
       delete clientHeartbeatTimeout[clientSid];
@@ -119,10 +133,22 @@ function clientFirstConnect(ws: WS) {
       if (clients.size === 0) sid = 0;
       ws.close(ServerCloseCodes.ServerError);
     });
-    ws.on('message', (data: string) => {
+    ws.on("message", (data: string) => {
       const payload: GenericPayload = JSON.parse(data);
       handleClientPayload(clientSid, payload);
     });
+  });
+}
+
+function disconnectUsername(username: string) {
+  clients.forEach((ws, id) => {
+    if (ws.username === username) {
+      ws.close(ServerCloseCodes.OK);
+      clearTimeout(clientHeartbeatTimeout[id]);
+      delete clientHeartbeatTimeout[id];
+      clients.delete(id);
+      if (clients.size === 0) sid = 0;
+    }
   });
 }
 
@@ -130,15 +156,15 @@ async function handleClientPayload(wsID: number, data: GenericPayload) {
   const ws = clients.get(wsID);
   if (!ws) return;
   switch (data.op) {
-    case 'IDENTIFY':
+    case "IDENTIFY":
       ws.close(ServerCloseCodes.AlreadyIdentified);
       break;
-    case 'HEARTBEAT':
+    case "HEARTBEAT":
       clearTimeout(clientHeartbeatTimeout[wsID]);
       setTimeout(
         () =>
-          sendPayload(ws, 'HEARTBEAT', {
-            timestamp: data.d.timestamp
+          sendPayload(ws, "HEARTBEAT", {
+            timestamp: data.d.timestamp,
           }),
         heartbeatInterval / 2
       );
@@ -151,6 +177,6 @@ async function handleClientPayload(wsID: number, data: GenericPayload) {
   }
 }
 
-server.on('connection', clientFirstConnect);
+server.on("connection", clientFirstConnect);
 
-export { sendPrompt, server };
+export { sendPrompt, disconnectUsername, server, clients };
