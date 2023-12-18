@@ -44,6 +44,10 @@ app.all('/', (req, res) => {
 });
 
 app.use(async (req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    next();
+    return;
+  }
   if (req.path === '/client') {
     next();
     return;
