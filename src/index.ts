@@ -26,6 +26,19 @@ app.use(Express.json());
 app.use(Express.urlencoded({ extended: true }));
 app.use(Express.text());
 
+// add CORS and OPTIONS support
+
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  next();
+});
+
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.send();
+});
+
 app.all('/', (req, res) => {
   res.json({ hello: 'world', version: packageJSON.version });
 });
@@ -142,19 +155,6 @@ app.post('/prompt', (req, res) => {
 
 const server = app.listen(3000, () => {
   console.log('Listening on port 3000');
-});
-
-// add CORS and OPTIONS support
-
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  next();
-});
-
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.send();
 });
 
 // Handle websocket connections from clients via express (app) and pass them to WSServer
