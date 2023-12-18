@@ -26,13 +26,6 @@ app.use(Express.json());
 app.use(Express.urlencoded({ extended: true }));
 app.use(Express.text());
 
-// add CORS and OPTIONS support
-
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  next();
-});
-
 app.options('*', (req, res) => {
   res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -44,10 +37,7 @@ app.all('/', (req, res) => {
 });
 
 app.use(async (req, res, next) => {
-  if (req.method === 'OPTIONS') {
-    next();
-    return;
-  }
+  res.header('Access-Control-Allow-Origin', '*');
   if (req.path === '/client') {
     next();
     return;
